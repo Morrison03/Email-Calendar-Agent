@@ -2,23 +2,27 @@ from __future__ import annotations
 
 from typing import Any
 
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 
-def build_gmail_client(access_token: str):
-    return build(
-        "gmail",
-        "v1",
-        developerKey=None,
-        credentials=None,
-        cache_discovery=False,
+def build_gmail_credentials(
+    access_token: str,
+    refresh_token: str | None,
+    token_uri: str | None,
+    client_id: str,
+    client_secret: str,
+) -> Credentials:
+    return Credentials(
+        token=access_token,
+        refresh_token=refresh_token,
+        token_uri=token_uri,
+        client_id=client_id,
+        client_secret=client_secret,
     )
 
 
-def list_recent_messages(access_token: str, max_results: int = 10) -> list[dict[str, Any]]:
-    from google.oauth2.credentials import Credentials
-
-    credentials = Credentials(token=access_token)
+def list_recent_messages(credentials: Credentials, max_results: int = 10) -> list[dict[str, Any]]:
     service = build("gmail", "v1", credentials=credentials, cache_discovery=False)
 
     result = (
@@ -35,7 +39,12 @@ def list_recent_messages(access_token: str, max_results: int = 10) -> list[dict[
         message = (
             service.users()
             .messages()
-            .get(userId="me", id=item["id"], format="metadata", metadataHeaders=["From", "Subject", "Date"])
+            .get(
+                userId="me",
+                id=item["id"],
+                format="metadata",
+                metadataHeaders=["From", "Subject", "Date"],
+            )
             .execute()
         )
 

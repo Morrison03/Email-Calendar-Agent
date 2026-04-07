@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models import GoogleAccount
 from app.services.gmail_service import list_recent_messages
+from app.services.google_token_service import get_valid_google_credentials
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -16,5 +17,7 @@ def get_recent_gmail_messages(db: Session = Depends(get_db)) -> dict[str, list[d
     if google_account is None:
         raise HTTPException(status_code=404, detail="No connected Google account found.")
 
-    messages = list_recent_messages(access_token=google_account.access_token, max_results=10)
+    credentials = get_valid_google_credentials(db=db, google_account=google_account)
+    messages = list_recent_messages(credentials=credentials, max_results=10)
+
     return {"messages": messages}
