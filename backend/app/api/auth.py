@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import traceback
+from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.db.session import get_db
 from app.integrations.google_oauth import (
     create_authorization_url,
     fetch_google_userinfo,
     fetch_tokens_from_callback,
 )
+from app.models import GoogleAccount, User
 
 router = APIRouter(prefix="/auth/google", tags=["auth"])
 
@@ -30,6 +34,7 @@ async def google_auth_callback(
     code: str | None = Query(default=None),
     state: str | None = Query(default=None),
     error: str | None = Query(default=None),
+    db: Session = Depends(get_db),
 ) -> HTMLResponse:
     try:
         if error:
@@ -45,6 +50,46 @@ async def google_auth_callback(
 
         token_data = fetch_tokens_from_callback(code=code, state=state)
         userinfo = await fetch_google_userinfo(token_data["token"])
+
+        email = userinfo.get("email")
+        full_name = userinfo.get("name")
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Google account email not returned.")
+
+        user = db.query(User).filter(User.email == email).first()
+        if user is None:
+            user = User(email=email, full_name=full_name)
+            db.add(user)
+            db.flush()
+        else:
+            user.full_name = full_name
+
+        expiry = None
+        if token_data.get("expiry"):
+            expiry = datetime.fromisoformat(token_data["expiry"])
+
+        google_account = db.query(GoogleAccount).filter(GoogleAccount.google_email == email).first()
+        if google_account is None:
+            google_account = GoogleAccount(
+                user_id=user.id,
+                google_email=email,
+                access_token=token_data["token"],
+                refresh_token=token_data.get("refresh_token"),
+                token_uri=token_data.get("token_uri"),
+                scopes=" ".join(token_data.get("scopes", [])),
+                expiry=expiry,
+            )
+            db.add(google_account)
+        else:
+            google_account.user_id = user.id
+            google_account.access_token = token_data["token"]
+            google_account.refresh_token = token_data.get("refresh_token") or google_account.refresh_token
+            google_account.token_uri = token_data.get("token_uri")
+            google_account.scopes = " ".join(token_data.get("scopes", []))
+            google_account.expiry = expiry
+
+        db.commit()
 
         html = f"""
         <html>
@@ -72,9 +117,9 @@ async def google_auth_callback(
           <body>
             <div class="card">
               <h1>Google account connected</h1>
-              <p><strong>Email:</strong> {userinfo.get("email", "unknown")}</p>
-              <p><strong>Name:</strong> {userinfo.get("name", "unknown")}</p>
-              <p><strong>Access token received:</strong> {"yes" if token_data.get("token") else "no"}</p>
+              <p><strong>Email:</strong> {email}</p>
+              <p><strong>Name:</strong> {full_name or "unknown"}</p>
+              <p><strong>Saved to database:</strong> yes</p>
               <p><strong>Refresh token received:</strong> {"yes" if token_data.get("refresh_token") else "no"}</p>
               <p><strong>Scopes granted:</strong></p>
               <ul>
@@ -89,6 +134,7 @@ async def google_auth_callback(
     except HTTPException:
         raise
     except Exception as exc:
+        db.rollback()
         tb = traceback.format_exc()
         print(tb)
         return HTMLResponse(
