@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.auth import router as auth_router
+from app.api.gmail import router as gmail_router
 from app.db.base import Base, engine
 from app.models import GoogleAccount, User
 
@@ -13,6 +14,7 @@ def on_startup() -> None:
 
 
 app.include_router(auth_router)
+app.include_router(gmail_router)
 
 
 @app.get("/health")
