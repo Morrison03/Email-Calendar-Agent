@@ -56,6 +56,15 @@
         color: #842029;
       }
 
+      .success {
+        margin: 16px 0 20px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #badbcc;
+        background: #f0fff4;
+        color: #0f5132;
+      }
+
       .grid {
         display: grid;
         gap: 16px;
@@ -92,11 +101,6 @@
         line-height: 1.45;
       }
 
-      .draft {
-        white-space: pre-wrap;
-        line-height: 1.5;
-      }
-
       .badge {
         display: inline-block;
         font-size: 12px;
@@ -126,6 +130,41 @@
         color: #374151;
       }
 
+      .draft-input {
+        width: 100%;
+        min-height: 220px;
+        box-sizing: border-box;
+        border: 1px solid #d0d7de;
+        border-radius: 12px;
+        padding: 12px;
+        font: inherit;
+        line-height: 1.5;
+        resize: vertical;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+
+      .button {
+        display: inline-block;
+        border: 1px solid #0b57d0;
+        background: #0b57d0;
+        color: white;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .button-secondary {
+        background: white;
+        color: #0b57d0;
+      }
+
       @media (max-width: 640px) {
         .topbar {
           flex-direction: column;
@@ -145,15 +184,33 @@
       </div>
 
       {% if not classification_ai_available and classification_ai_error %}
-      <div class="notice">
-        Email classification is using fallback categories right now.
-      </div>
+      <div class="notice">Email classification is using fallback categories right now.</div>
       {% endif %}
 
       {% if not draft_ai_available and draft_ai_error %}
+      <div class="notice">AI reply drafting is unavailable. Showing fallback draft text.</div>
+      {% endif %}
+
+      {% if not has_gmail_compose_scope %}
       <div class="notice">
-        AI reply drafting is unavailable. Showing fallback draft text.
+        Gmail draft creation is unavailable until you reconnect Google with gmail.compose access.
       </div>
+      {% endif %}
+
+      {% if create_error %}
+      <div class="notice">Could not create Gmail draft: {{ create_error }}</div>
+      {% endif %}
+
+      {% if send_error %}
+      <div class="notice">Could not send Gmail draft: {{ send_error }}</div>
+      {% endif %}
+
+      {% if draft_created %}
+      <div class="success">Gmail draft created successfully. Draft ID: {{ created_draft_id }}</div>
+      {% endif %}
+
+      {% if draft_sent %}
+      <div class="success">Gmail draft sent successfully. Message ID: {{ sent_message_id }}</div>
       {% endif %}
 
       <div class="grid">
@@ -170,7 +227,34 @@
 
         <div class="card">
           <div class="label">Draft reply</div>
-          <div class="draft">{{ draft }}</div>
+
+          {% if has_gmail_compose_scope %}
+          <form method="post" action="/reply-draft/create">
+            <input type="hidden" name="message_index" value="{{ message_index }}" />
+            <textarea class="draft-input" name="draft">{{ draft }}</textarea>
+            <div class="button-row">
+              <button class="button" type="submit">Create Gmail draft</button>
+              <a class="button button-secondary link" href="/reply-draft?message_index={{ message_index }}">
+                Refresh view
+              </a>
+            </div>
+          </form>
+          {% else %}
+          <div class="notice">
+            Gmail draft creation is unavailable until you reconnect Google with gmail.compose access.
+          </div>
+          {% endif %}
+
+          {% if draft_created and created_draft_id and not draft_sent %}
+          <form method="post" action="/reply-draft/send">
+            <input type="hidden" name="message_index" value="{{ message_index }}" />
+            <input type="hidden" name="draft" value="{{ draft }}" />
+            <input type="hidden" name="draft_id" value="{{ created_draft_id }}" />
+            <div class="button-row">
+              <button class="button" type="submit">Send approved draft</button>
+            </div>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>

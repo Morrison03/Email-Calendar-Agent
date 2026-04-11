@@ -3,12 +3,14 @@
 These endpoints start the Google OAuth flow and handle the callback that
 stores the connected account and tokens in the database.
 """
+# backend/app/api/auth.py
 from __future__ import annotations
 
+import secrets
 import traceback
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy.orm import Session
@@ -28,14 +30,24 @@ state_signer = URLSafeSerializer(settings.secret_key, salt="google-oauth-state")
 
 
 @router.get("/start")
-async def google_auth_start() -> RedirectResponse:
+async def google_auth_start(request: Request) -> RedirectResponse:
     signed_state = state_signer.dumps({"provider": "google"})
-    authorization_url, _ = create_authorization_url(state=signed_state)
+    code_verifier = secrets.token_urlsafe(64)
+
+    request.session.clear()
+    request.session["google_oauth_state"] = signed_state
+    request.session["google_oauth_code_verifier"] = code_verifier
+
+    authorization_url, _ = create_authorization_url(
+        state=signed_state,
+        code_verifier=code_verifier,
+    )
     return RedirectResponse(url=authorization_url, status_code=302)
 
 
 @router.get("/callback", response_class=HTMLResponse)
 async def google_auth_callback(
+    request: Request,
     code: str | None = Query(default=None),
     state: str | None = Query(default=None),
     error: str | None = Query(default=None),
@@ -48,13 +60,28 @@ async def google_auth_callback(
         if not code or not state:
             raise HTTPException(status_code=400, detail="Missing code or state.")
 
+        expected_state = request.session.get("google_oauth_state")
+        if not expected_state:
+            raise HTTPException(status_code=400, detail="Missing OAuth state in session.")
+
+        if state != expected_state:
+            raise HTTPException(status_code=400, detail="OAuth state mismatch.")
+
         try:
             state_signer.loads(state)
         except BadSignature as exc:
             raise HTTPException(status_code=400, detail="Invalid OAuth state.") from exc
 
-        token_data = fetch_tokens_from_callback(code=code, state=state)
-        userinfo = await fetch_google_userinfo(token_data["token"])
+        code_verifier = request.session.get("google_oauth_code_verifier")
+        if not code_verifier:
+            raise HTTPException(status_code=400, detail="Missing PKCE code verifier in session.")
+
+        token_data = fetch_tokens_from_callback(
+            code=code,
+            state=state,
+            code_verifier=code_verifier,
+        )
+        userinfo = fetch_google_userinfo(access_token=token_data["token"])
 
         email = userinfo.get("email")
         full_name = userinfo.get("name")
@@ -96,6 +123,8 @@ async def google_auth_callback(
 
         db.commit()
 
+        request.session.clear()
+
         html = f"""
         <html>
           <head>
@@ -130,14 +159,25 @@ async def google_auth_callback(
               <ul>
                 {''.join(f"<li><code>{scope}</code></li>" for scope in token_data.get("scopes", []))}
               </ul>
+              <p><a href="/inbox">Go to inbox</a></p>
             </div>
           </body>
         </html>
         """
         return HTMLResponse(content=html)
 
-    except HTTPException:
-        raise
+    except HTTPException as exc:
+        return HTMLResponse(
+            content=f"""
+            <html>
+              <body style="font-family: Arial; max-width: 900px; margin: 40px auto;">
+                <h1>OAuth callback failed</h1>
+                <p><strong>Error:</strong> {exc.detail}</p>
+              </body>
+            </html>
+            """,
+            status_code=exc.status_code,
+        )
     except Exception as exc:
         db.rollback()
         tb = traceback.format_exc()

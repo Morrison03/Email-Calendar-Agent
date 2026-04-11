@@ -1,69 +1,114 @@
-"""Gmail service helpers.
-
-This module wraps Gmail API calls so route handlers stay small and focused on
-request/response logic.
-"""
+# backend/app/services/gmail_service.py
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
+from app.core.config import settings
+
+EmailMessage = dict[str, Any]
+
+GOOGLE_SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
+]
+
 
 def build_gmail_credentials(
+    *,
     access_token: str,
-    refresh_token: str | None,
-    token_uri: str | None,
-    client_id: str,
-    client_secret: str,
+    refresh_token: str | None = None,
+    token_uri: str = "https://oauth2.googleapis.com/token",
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    scopes: list[str] | None = None,
+    expiry: dt.datetime | None = None,
 ) -> Credentials:
     return Credentials(
         token=access_token,
         refresh_token=refresh_token,
         token_uri=token_uri,
-        client_id=client_id,
-        client_secret=client_secret,
+        client_id=client_id or settings.google_client_id,
+        client_secret=client_secret or settings.google_client_secret,
+        scopes=scopes or GOOGLE_SCOPES,
+        expiry=expiry,
     )
 
 
-def list_recent_messages(credentials: Credentials, max_results: int = 10) -> list[dict[str, Any]]:
-    service = build("gmail", "v1", credentials=credentials, cache_discovery=False)
+def _get_header(headers: list[dict[str, str]], name: str) -> str:
+    for header in headers:
+        if header.get("name", "").lower() == name.lower():
+            return header.get("value", "")
+    return ""
 
-    result = (
-        service.users()
-        .messages()
-        .list(userId="me", maxResults=max_results)
-        .execute()
-    )
 
-    messages = result.get("messages", [])
-    output: list[dict[str, Any]] = []
+def _format_internal_date(internal_date_ms: str | None) -> str:
+    if not internal_date_ms:
+        return ""
+    try:
+        timestamp = int(internal_date_ms) / 1000
+        return dt.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return ""
 
-    for item in messages:
-        message = (
+
+def list_recent_messages(credentials: Any, max_results: int = 10) -> list[EmailMessage]:
+    service = build("gmail", "v1", credentials=credentials)
+    response = service.users().messages().list(userId="me", maxResults=max_results).execute()
+    items = response.get("messages", [])
+
+    messages: list[EmailMessage] = []
+    for item in items:
+        message_id = item.get("id")
+        if not message_id:
+            continue
+
+        detail = (
             service.users()
             .messages()
             .get(
                 userId="me",
-                id=item["id"],
+                id=message_id,
                 format="metadata",
-                metadataHeaders=["From", "Subject", "Date"],
+                metadataHeaders=[
+                    "From",
+                    "To",
+                    "Cc",
+                    "Reply-To",
+                    "Subject",
+                    "Date",
+                    "Message-ID",
+                    "References",
+                    "In-Reply-To",
+                ],
             )
             .execute()
         )
 
-        headers = {h["name"]: h["value"] for h in message.get("payload", {}).get("headers", [])}
+        payload = detail.get("payload", {})
+        headers = payload.get("headers", [])
 
-        output.append(
+        messages.append(
             {
-                "id": message.get("id"),
-                "thread_id": message.get("threadId"),
-                "snippet": message.get("snippet"),
-                "from": headers.get("From"),
-                "subject": headers.get("Subject"),
-                "date": headers.get("Date"),
+                "id": detail.get("id", ""),
+                "thread_id": detail.get("threadId", ""),
+                "from": _get_header(headers, "From"),
+                "to": _get_header(headers, "To"),
+                "cc": _get_header(headers, "Cc"),
+                "reply_to": _get_header(headers, "Reply-To"),
+                "subject": _get_header(headers, "Subject"),
+                "date": _get_header(headers, "Date") or _format_internal_date(detail.get("internalDate")),
+                "snippet": detail.get("snippet", ""),
+                "message_id_header": _get_header(headers, "Message-ID"),
+                "references": _get_header(headers, "References"),
+                "in_reply_to": _get_header(headers, "In-Reply-To"),
             }
         )
 
-    return output
+    return messages

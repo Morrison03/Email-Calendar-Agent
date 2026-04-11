@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
 
+    oauthlib_relax_token_scope: str = "0"
+
     postgres_db: str
     postgres_user: str
     postgres_password: str
