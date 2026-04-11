@@ -1,10 +1,9 @@
-<!-- backend/app/templates/inbox.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Inbox</title>
+    <title>Reply Draft</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -57,9 +56,9 @@
         color: #842029;
       }
 
-      .list {
+      .grid {
         display: grid;
-        gap: 14px;
+        gap: 16px;
       }
 
       .card {
@@ -70,33 +69,22 @@
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
 
-      .row {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
+      .label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #666;
         margin-bottom: 8px;
-      }
-
-      .meta {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
       }
 
       .from {
         font-weight: 600;
       }
 
-      .date {
-        color: #777;
-        font-size: 14px;
-        white-space: nowrap;
-      }
-
       .subject {
-        font-size: 17px;
-        margin: 4px 0 8px;
+        font-size: 18px;
+        margin: 8px 0;
       }
 
       .snippet {
@@ -104,16 +92,9 @@
         line-height: 1.45;
       }
 
-      .actions {
-        margin-top: 12px;
-      }
-
-      .empty {
-        background: white;
-        border: 1px dashed #ccc;
-        border-radius: 14px;
-        padding: 20px;
-        color: #666;
+      .draft {
+        white-space: pre-wrap;
+        line-height: 1.5;
       }
 
       .badge {
@@ -146,14 +127,9 @@
       }
 
       @media (max-width: 640px) {
-        .topbar,
-        .row {
+        .topbar {
           flex-direction: column;
           align-items: flex-start;
-        }
-
-        .date {
-          white-space: normal;
         }
       }
     </style>
@@ -162,45 +138,41 @@
     <div class="container">
       <div class="topbar">
         <div>
-          <h1 class="title">Inbox</h1>
+          <h1 class="title">Reply Draft</h1>
           <p class="subtitle">Connected account: {{ connected_email }}</p>
         </div>
-        <a class="link" href="/gmail/messages">View raw JSON</a>
+        <a class="link" href="/inbox">Back to inbox</a>
       </div>
 
-      {% if not ai_available and ai_error %}
+      {% if not classification_ai_available and classification_ai_error %}
       <div class="notice">
-        AI classification is currently unavailable. Showing fallback categories.
+        Email classification is using fallback categories right now.
       </div>
       {% endif %}
 
-      {% if messages %}
-      <div class="list">
-        {% for message in messages %}
-        {% set category = message.get("category", "review") %}
+      {% if not draft_ai_available and draft_ai_error %}
+      <div class="notice">
+        AI reply drafting is unavailable. Showing fallback draft text.
+      </div>
+      {% endif %}
+
+      <div class="grid">
         <div class="card">
-          <div class="row">
-            <div class="meta">
-              <div class="from">{{ message.get("from") or "Unknown sender" }}</div>
-              <span class="badge badge-{{ category }}">{{ category }}</span>
-            </div>
-            <div class="date">{{ message.get("date") or "" }}</div>
-          </div>
-
+          <div class="label">Selected email</div>
+          {% set category = message.get("category", "review") %}
+          <div class="from">{{ message.get("from") or "Unknown sender" }}</div>
           <div class="subject">{{ message.get("subject") or "(No subject)" }}</div>
-          <div class="snippet">{{ message.get("snippet") or "" }}</div>
-
-          <div class="actions">
-            <a class="link" href="/reply-draft?message_index={{ loop.index0 }}">
-              Preview draft
-            </a>
+          <div style="margin-bottom: 10px;">
+            <span class="badge badge-{{ category }}">{{ category }}</span>
           </div>
+          <div class="snippet">{{ message.get("snippet") or "" }}</div>
         </div>
-        {% endfor %}
+
+        <div class="card">
+          <div class="label">Draft reply</div>
+          <div class="draft">{{ draft }}</div>
+        </div>
       </div>
-      {% else %}
-      <div class="empty">No messages found.</div>
-      {% endif %}
     </div>
   </body>
 </html>
