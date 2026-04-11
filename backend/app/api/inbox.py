@@ -1,3 +1,8 @@
+# backend/app/api/inbox.py
+"""Inbox UI routes.
+Renders a minimal server-side HTML inbox page using recent Gmail messages
+fetched from the connected account.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -7,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models import GoogleAccount
+from app.services.email_classifier import classify_messages
 from app.services.gmail_service import list_recent_messages
 from app.services.google_token_service import get_valid_google_credentials
 
@@ -22,13 +28,16 @@ def inbox_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
     credentials = get_valid_google_credentials(db=db, google_account=google_account)
     messages = list_recent_messages(credentials=credentials, max_results=15)
+    result = classify_messages(messages)
 
     return templates.TemplateResponse(
         request=request,
         name="inbox.html",
         context={
             "request": request,
-            "messages": messages,
+            "messages": result["messages"],
             "connected_email": google_account.google_email,
+            "ai_available": result["ai_available"],
+            "ai_error": result["ai_error"],
         },
     )

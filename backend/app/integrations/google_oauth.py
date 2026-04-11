@@ -1,3 +1,8 @@
+"""Google OAuth helpers.
+
+This file handles OAuth URL creation, PKCE state management, token exchange,
+and basic Google user profile lookup.
+"""
 from __future__ import annotations
 
 from threading import Lock

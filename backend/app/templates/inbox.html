@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inbox</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f7f7f8;
+        color: #1f1f1f;
+      }
+
+      .container {
+        max-width: 980px;
+        margin: 32px auto;
+        padding: 0 20px;
+      }
+
+      .title {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: #666;
+      }
+
+      .list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .card {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 8px;
+      }
+
+      .meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .from {
+        font-weight: 600;
+      }
+
+      .date {
+        color: #777;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .subject {
+        font-size: 17px;
+        margin: 4px 0 8px;
+      }
+
+      .snippet {
+        color: #555;
+        line-height: 1.45;
+      }
+
+      .empty {
+        background: white;
+        border: 1px dashed #ccc;
+        border-radius: 14px;
+        padding: 20px;
+        color: #666;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .link {
+        text-decoration: none;
+        color: #0b57d0;
+        font-size: 14px;
+      }
+
+      .link:hover {
+        text-decoration: underline;
+      }
+
+      .badge {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 999px;
+        text-transform: capitalize;
+      }
+
+      .badge-important {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .badge-meeting {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+
+      .badge-newsletter {
+        background: #f3e8ff;
+        color: #7e22ce;
+      }
+
+      .badge-review {
+        background: #e5e7eb;
+        color: #374151;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <div>
+          <h1 class="title">Inbox</h1>
+          <p class="subtitle">Connected account: {{ connected_email }}</p>
+        </div>
+        <a class="link" href="/gmail/messages">View raw JSON</a>
+      </div>
+
+      {% if not ai_available and ai_error %}
+      <div class="notice">
+        AI classification is currently unavailable. Showing fallback categories.
+      </div>
+      {% endif %}
+
+      {% if messages %}
+      <div class="list">
+        {% for message in messages %}
+        {% set category = message.get("category", "review") %}
+        <div class="card">
+          <div class="row">
+            <div class="meta">
+              <div class="from">{{ message.get("from") or "Unknown sender" }}</div>
+              <span class="badge badge-{{ category }}">{{ category }}</span>
+            </div>
+            <div class="date">{{ message.get("date") or "" }}</div>
+          </div>
+          <div class="subject">{{ message.get("subject") or "(No subject)" }}</div>
+          <div class="snippet">{{ message.get("snippet") or "" }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">No messages found.</div>
+      {% endif %}
+    </div>
+  </body>
+</html>

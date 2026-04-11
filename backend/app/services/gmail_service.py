@@ -1,3 +1,8 @@
+"""Gmail service helpers.
+
+This module wraps Gmail API calls so route handlers stay small and focused on
+request/response logic.
+"""
 from __future__ import annotations
 
 from typing import Any

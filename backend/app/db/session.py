@@ -1,3 +1,8 @@
+"""Database session dependency helpers.
+
+FastAPI routes use this generator to open a database session for each request
+and close it safely afterward.
+"""
 from collections.abc import Generator
 
 from sqlalchemy.orm import Session

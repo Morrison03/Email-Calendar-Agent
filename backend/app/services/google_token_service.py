@@ -1,3 +1,8 @@
+"""Google token refresh helpers.
+
+This module ensures stored OAuth credentials remain usable by refreshing the
+access token when it expires and persisting the new value.
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone

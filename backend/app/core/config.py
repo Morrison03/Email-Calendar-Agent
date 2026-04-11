@@ -1,3 +1,8 @@
+"""Application settings loaded from environment variables.
+
+This centralizes secrets, database settings, and app preferences so the rest
+of the code can import a single settings object.
+"""
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,7 +17,7 @@ class Settings(BaseSettings):
     google_client_secret: str
     google_redirect_uri: str
 
-    openai_api_key: str
+    openai_api_key: str = ""
 
     postgres_db: str
     postgres_user: str

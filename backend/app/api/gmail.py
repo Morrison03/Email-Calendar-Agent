@@ -1,3 +1,8 @@
+"""Gmail API routes.
+
+These endpoints expose Gmail-backed data from the connected Google account,
+starting with recent message retrieval.
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException

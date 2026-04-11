@@ -1,3 +1,8 @@
+"""SQLAlchemy base engine and session configuration.
+
+This file defines the shared database engine, session factory, and declarative
+base used by all ORM models.
+"""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 

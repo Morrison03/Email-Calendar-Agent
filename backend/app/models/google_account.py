@@ -1,3 +1,8 @@
+"""User ORM model.
+
+Represents a local app user profile. For this MVP, one user maps to one
+connected Google account.
+"""
 from __future__ import annotations
 
 from datetime import datetime

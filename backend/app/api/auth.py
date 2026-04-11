@@ -1,3 +1,8 @@
+"""Google authentication routes.
+
+These endpoints start the Google OAuth flow and handle the callback that
+stores the connected account and tokens in the database.
+"""
 from __future__ import annotations
 
 import traceback
