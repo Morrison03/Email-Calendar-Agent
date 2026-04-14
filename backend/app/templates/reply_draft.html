@@ -165,6 +165,86 @@
         color: #0b57d0;
       }
 
+      .meta-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .meta-block {
+        margin-top: 12px;
+      }
+
+      .meta-title {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .pill-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 13px;
+      }
+
+      .status-yes {
+        color: #0f5132;
+        font-weight: 700;
+      }
+
+      .status-no {
+        color: #666;
+        font-weight: 700;
+      }
+
+      .muted {
+        color: #666;
+      }
+
+      .slot-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .slot-card {
+        border: 1px solid #dbe4ff;
+        background: #f8fbff;
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+
+      .slot-time {
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .slot-meta {
+        color: #555;
+        font-size: 14px;
+      }
+
+      .slot-actions {
+        margin-top: 10px;
+      }
+
+      .event-link {
+        color: #0b57d0;
+        text-decoration: none;
+      }
+
+      .event-link:hover {
+        text-decoration: underline;
+      }
+
       @media (max-width: 640px) {
         .topbar {
           flex-direction: column;
@@ -197,6 +277,18 @@
       </div>
       {% endif %}
 
+      {% if not has_calendar_read_scope %}
+      <div class="notice">
+        Meeting suggestions are unavailable until you reconnect Google with calendar.readonly access.
+      </div>
+      {% endif %}
+
+      {% if not has_calendar_write_scope %}
+      <div class="notice">
+        Calendar event creation is unavailable until you reconnect Google with calendar.events access.
+      </div>
+      {% endif %}
+
       {% if create_error %}
       <div class="notice">Could not create Gmail draft: {{ create_error }}</div>
       {% endif %}
@@ -205,12 +297,28 @@
       <div class="notice">Could not send Gmail draft: {{ send_error }}</div>
       {% endif %}
 
+      {% if event_create_error %}
+      <div class="notice">Could not create calendar event: {{ event_create_error }}</div>
+      {% endif %}
+
       {% if draft_created %}
       <div class="success">Gmail draft created successfully. Draft ID: {{ created_draft_id }}</div>
       {% endif %}
 
       {% if draft_sent %}
       <div class="success">Gmail draft sent successfully. Message ID: {{ sent_message_id }}</div>
+      {% endif %}
+
+      {% if event_created and created_event %}
+      <div class="success">
+        Calendar event created: {{ created_event.summary }}
+        {% if created_event.html_link %}
+        —
+        <a class="event-link" href="{{ created_event.html_link }}" target="_blank" rel="noopener noreferrer">
+          Open in Google Calendar
+        </a>
+        {% endif %}
+      </div>
       {% endif %}
 
       <div class="grid">
@@ -226,15 +334,131 @@
         </div>
 
         <div class="card">
+          <div class="label">Scheduling signals</div>
+
+          {% if scheduling_intent.has_scheduling_intent %}
+          <div class="status-yes">
+            Likely scheduling email ({{ (scheduling_intent.confidence * 100) | round(0) | int }}% confidence)
+          </div>
+          {% else %}
+          <div class="status-no">
+            No clear scheduling intent detected ({{ (scheduling_intent.confidence * 100) | round(0) | int }}% confidence)
+          </div>
+          {% endif %}
+
+          <div class="meta-grid">
+            <div class="meta-block">
+              <div class="meta-title">Requested duration</div>
+              <div class="muted">
+                {% if scheduling_intent.requested_duration_minutes %}
+                  {{ scheduling_intent.requested_duration_minutes }} minutes
+                {% else %}
+                  Not detected
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="meta-block">
+              <div class="meta-title">Dates mentioned</div>
+              {% if scheduling_intent.mentioned_dates %}
+              <div class="pill-list">
+                {% for value in scheduling_intent.mentioned_dates %}
+                <span class="pill">{{ value }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="muted">None detected</div>
+              {% endif %}
+            </div>
+
+            <div class="meta-block">
+              <div class="meta-title">Times mentioned</div>
+              {% if scheduling_intent.mentioned_times %}
+              <div class="pill-list">
+                {% for value in scheduling_intent.mentioned_times %}
+                <span class="pill">{{ value }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="muted">None detected</div>
+              {% endif %}
+            </div>
+
+            <div class="meta-block">
+              <div class="meta-title">Time ranges</div>
+              {% if scheduling_intent.mentioned_time_ranges %}
+              <div class="pill-list">
+                {% for value in scheduling_intent.mentioned_time_ranges %}
+                <span class="pill">{{ value }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="muted">None detected</div>
+              {% endif %}
+            </div>
+
+            <div class="meta-block">
+              <div class="meta-title">Timezone clues</div>
+              {% if scheduling_intent.timezone_clues %}
+              <div class="pill-list">
+                {% for value in scheduling_intent.timezone_clues %}
+                <span class="pill">{{ value }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="muted">None detected</div>
+              {% endif %}
+            </div>
+
+            {% if scheduling_intent.notes %}
+            <div class="meta-block">
+              <div class="meta-title">Notes</div>
+              <div class="muted">{{ scheduling_intent.notes }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">Suggested meeting options</div>
+
+          {% if slot_suggestions.suggestions %}
+          <div class="slot-list">
+            {% for slot in slot_suggestions.suggestions %}
+            <div class="slot-card">
+              <div class="slot-time">{{ slot.label }}</div>
+              <div class="slot-meta">{{ slot.duration_minutes }} minutes</div>
+
+              {% if has_calendar_write_scope %}
+              <form method="post" action="/calendar-event/create" class="slot-actions">
+                <input type="hidden" name="message_id" value="{{ message_id }}" />
+                <input type="hidden" name="draft" value="{{ draft }}" />
+                <input type="hidden" name="slot_start" value="{{ slot.start.isoformat() }}" />
+                <input type="hidden" name="slot_end" value="{{ slot.end.isoformat() }}" />
+                <input type="hidden" name="slot_label" value="{{ slot.label }}" />
+                <button class="button" type="submit">Create calendar event</button>
+              </form>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="muted">
+            {{ slot_suggestions.reason or "No meeting suggestions available yet." }}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="card">
           <div class="label">Draft reply</div>
 
           {% if has_gmail_compose_scope %}
           <form method="post" action="/reply-draft/create">
-            <input type="hidden" name="message_index" value="{{ message_index }}" />
+            <input type="hidden" name="message_id" value="{{ message_id }}" />
             <textarea class="draft-input" name="draft">{{ draft }}</textarea>
             <div class="button-row">
               <button class="button" type="submit">Create Gmail draft</button>
-              <a class="button button-secondary link" href="/reply-draft?message_index={{ message_index }}">
+              <a class="button button-secondary link" href="/reply-draft?message_id={{ message_id }}">
                 Refresh view
               </a>
             </div>
@@ -247,7 +471,7 @@
 
           {% if draft_created and created_draft_id and not draft_sent %}
           <form method="post" action="/reply-draft/send">
-            <input type="hidden" name="message_index" value="{{ message_index }}" />
+            <input type="hidden" name="message_id" value="{{ message_id }}" />
             <input type="hidden" name="draft" value="{{ draft }}" />
             <input type="hidden" name="draft_id" value="{{ created_draft_id }}" />
             <div class="button-row">

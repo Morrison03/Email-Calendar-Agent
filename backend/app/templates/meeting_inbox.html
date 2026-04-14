@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meeting Inbox</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f7f7f8;
+        color: #1f1f1f;
+      }
+
+      .container {
+        max-width: 980px;
+        margin: 32px auto;
+        padding: 0 20px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .title {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: #666;
+      }
+
+      .link {
+        text-decoration: none;
+        color: #0b57d0;
+        font-size: 14px;
+      }
+
+      .link:hover {
+        text-decoration: underline;
+      }
+
+      .summary-card {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        margin-bottom: 16px;
+      }
+
+      .summary-count {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 6px 0 0;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .item-card {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      .meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+
+      .sender {
+        font-weight: 700;
+      }
+
+      .timestamp {
+        color: #666;
+        font-size: 14px;
+      }
+
+      .subject {
+        font-size: 18px;
+        margin: 8px 0;
+      }
+
+      .snippet {
+        color: #555;
+        line-height: 1.45;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .button {
+        display: inline-block;
+        border: 1px solid #0b57d0;
+        background: #0b57d0;
+        color: white;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font: inherit;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .button-secondary {
+        background: white;
+        color: #0b57d0;
+      }
+
+      .empty-state {
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 14px;
+        padding: 24px 18px;
+        text-align: center;
+        color: #666;
+      }
+
+      @media (max-width: 640px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="meeting-notification-config"
+      data-endpoint="/notifications/meeting-status"
+      data-poll-seconds="{{ notification_poll_seconds }}"
+      data-repeat-minutes="{{ notification_repeat_minutes }}"
+    ></div>
+
+    <div class="container">
+      <div class="topbar">
+        <div>
+          <h1 class="title">Meeting Inbox</h1>
+          <p class="subtitle">Connected account: {{ connected_email }}</p>
+        </div>
+        <a class="link" href="/inbox">Back to inbox</a>
+      </div>
+
+      <div class="summary-card">
+        <div>Pending meeting threads</div>
+        <div class="summary-count">{{ pending_count }}</div>
+      </div>
+
+      {% if meeting_items %}
+      <div class="grid">
+        {% for item in meeting_items %}
+        <div class="item-card">
+          <div class="meta-row">
+            <div class="sender">{{ item.from_email or "Unknown sender" }}</div>
+            <div class="timestamp">
+              {% if item.received_at %}
+                {{ item.received_at.strftime("%Y-%m-%d %I:%M %p") }}
+              {% else %}
+                Unknown time
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="subject">{{ item.subject or "(No subject)" }}</div>
+          <div class="snippet">{{ item.snippet or "" }}</div>
+
+          <div class="actions">
+            <a class="button" href="/reply-draft?message_id={{ item.latest_message_id }}">
+              Open
+            </a>
+
+            <form method="post" action="/meeting-inbox/disregard" style="margin: 0;">
+              <input type="hidden" name="queue_item_id" value="{{ item.id }}" />
+              <button class="button button-secondary" type="submit">Disregard</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        No pending meeting emails right now.
+      </div>
+      {% endif %}
+    </div>
+
+    <script src="/static/js/meeting_notifications.js"></script>
+  </body>
+</html>

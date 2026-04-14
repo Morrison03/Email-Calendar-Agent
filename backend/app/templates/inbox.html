@@ -27,6 +27,13 @@
         margin-bottom: 18px;
       }
 
+      .topbar-links {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
       .title {
         font-size: 28px;
         font-weight: 700;
@@ -108,6 +115,21 @@
         margin-top: 12px;
       }
 
+      .action-button {
+        display: inline-block;
+        border: 1px solid #0b57d0;
+        background: #0b57d0;
+        color: white;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .action-button:hover {
+        opacity: 0.95;
+      }
+
       .empty {
         background: white;
         border: 1px dashed #ccc;
@@ -159,13 +181,24 @@
     </style>
   </head>
   <body>
+    <div
+      id="meeting-notification-config"
+      data-endpoint="/notifications/meeting-status"
+      data-poll-seconds="60"
+      data-repeat-minutes="10"
+    ></div>
+
     <div class="container">
       <div class="topbar">
         <div>
           <h1 class="title">Inbox</h1>
           <p class="subtitle">Connected account: {{ connected_email }}</p>
         </div>
-        <a class="link" href="/gmail/messages">View raw JSON</a>
+
+        <div class="topbar-links">
+          <a class="link" href="/meeting-inbox">Meeting inbox</a>
+          <a class="link" href="/gmail/messages">View raw JSON</a>
+        </div>
       </div>
 
       {% if not ai_available and ai_error %}
@@ -191,9 +224,10 @@
           <div class="snippet">{{ message.get("snippet") or "" }}</div>
 
           <div class="actions">
-            <a class="link" href="/reply-draft?message_index={{ loop.index0 }}">
-              Preview draft
-            </a>
+            <form method="get" action="/reply-draft">
+              <input type="hidden" name="message_id" value="{{ message.get('id') }}" />
+              <button class="action-button" type="submit">Preview draft</button>
+            </form>
           </div>
         </div>
         {% endfor %}
@@ -202,5 +236,7 @@
       <div class="empty">No messages found.</div>
       {% endif %}
     </div>
+
+    <script src="/static/js/meeting_notifications.js"></script>
   </body>
 </html>
